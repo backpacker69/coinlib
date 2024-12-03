@@ -21,9 +21,9 @@ final class TaprootSignatureHasher with Writable implements SignatureHasher {
   final Uint8List? leafHash;
   final int codeSeperatorPos;
 
-  /// Produces the hash for a Taproot input signature at [inputN].
-  /// Unless [SigHashType.anyOneCanPay] is true, [prevOuts] must contain the
-  /// full list of previous outputs being spent.
+  /// Produces the hash for a Taproot input signature at [inputN]. Unless
+  /// [SigHashType.anyOneCanPay] or [SigHashType.anyPrevOutAnyScript] is true,
+  /// [prevOuts] must contain the full list of previous outputs being spent.
   /// The [hashType] controls what data is included. If ommitted it will be
   /// treated as SIGHASH_DEFAULT which includes the same data as SIGHASH_ALL but
   /// produces distinct signatures.
@@ -38,7 +38,7 @@ final class TaprootSignatureHasher with Writable implements SignatureHasher {
     this.leafHash,
     this.codeSeperatorPos = 0xFFFFFFFF,
   }) : txHashes = TransactionSignatureHashes(tx),
-  prevOutHashes = PrevOutSignatureHashes(prevOuts) {
+  prevOutHashes = prevOuts.isEmpty ? null : PrevOutSignatureHashes(prevOuts) {
 
     SignatureHasher.checkInputN(tx, inputN);
 
@@ -48,7 +48,8 @@ final class TaprootSignatureHasher with Writable implements SignatureHasher {
       );
     }
 
-    if (prevOuts.length != tx.inputs.length) {
+    // Only check prevOuts length if we're not using ANYPREVOUTANYSCRIPT flag
+    if (!hashType.anyPrevOutAnyScript && prevOuts.length != tx.inputs.length) {
       throw ArgumentError.value(
         prevOuts.length, "prevOuts.length", "must be same length as inputs",
       );
@@ -68,7 +69,7 @@ final class TaprootSignatureHasher with Writable implements SignatureHasher {
     writer.writeUInt32(tx.version);
     writer.writeUInt32(tx.locktime);
 
-    if (!hashType.anyOneCanPay) {
+    if (!hashType.anyPrevOut && !hashType.anyPrevOutAnyScript && !hashType.anyOneCanPay) {
       writer.writeSlice(txHashes.prevouts.singleHash);
       writer.writeSlice(prevOutHashes!.amounts.singleHash);
       writer.writeSlice(prevOutHashes!.scripts.singleHash);
@@ -82,8 +83,13 @@ final class TaprootSignatureHasher with Writable implements SignatureHasher {
     // Data specific to spending input
     writer.writeUInt8(extFlag << 1);
 
-    if (hashType.anyOneCanPay) {
+    if (hashType.anyPrevOutAnyScript) {
+      writer.writeUInt32(tx.inputs[inputN].sequence);
+    } else if (hashType.anyOneCanPay) {
       tx.inputs[inputN].prevOut.write(writer);
+      prevOuts[inputN].write(writer);
+      writer.writeUInt32(tx.inputs[inputN].sequence);
+    } else if (hashType.anyPrevOut) {
       prevOuts[inputN].write(writer);
       writer.writeUInt32(tx.inputs[inputN].sequence);
     } else {
@@ -99,8 +105,11 @@ final class TaprootSignatureHasher with Writable implements SignatureHasher {
 
     // Data specific to the script
     if (leafHash != null) {
-      writer.writeSlice(leafHash!);
-      writer.writeUInt8(0); // Key version = 0
+      if (!hashType.anyPrevOutAnyScript) {
+        writer.writeSlice(leafHash!);
+      }
+      final keyversion = (hashType.anyPrevOut || hashType.anyPrevOutAnyScript) ? 1 : 0;
+      writer.writeUInt8(keyversion);
       writer.writeUInt32(codeSeperatorPos);
     }
 

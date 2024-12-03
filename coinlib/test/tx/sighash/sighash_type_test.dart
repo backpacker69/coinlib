@@ -55,7 +55,7 @@ void main() {
     });
 
     test("invalid values", () {
-      for (final invalid in [0, 4, 0x80, 0x84, 0x11, 0xc1, 0x181]) {
+      for (final invalid in [0, 4, 0x80, 0x84, 0x11, 0x181]) {
         expect(SigHashType.validValue(invalid), false);
         expect(() => SigHashType.checkValue(invalid), throwsArgumentError);
         expect(() => SigHashType.fromValue(invalid), throwsArgumentError);

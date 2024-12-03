@@ -243,7 +243,7 @@ class Transaction with Writable {
         );
       }
 
-      if (prevOuts.length != inputs.length) {
+      if (!hashType.anyPrevOut && prevOuts.length != inputs.length) {
         throw CannotSignInput(
           "The number of previous outputs must match the number of inputs",
         );
@@ -420,5 +420,11 @@ class Transaction with Writable {
   bool get complete
     => inputs.isNotEmpty && outputs.isNotEmpty
     && inputs.every((input) => input.complete);
+
+  bool get anyPrevOut => inputs.any((input) =>
+    (input.witness.isNotEmpty &&
+     input.witness[0].length >= 64 &&
+     SchnorrInputSignature.fromBytes(input.witness[0]).hashType.anyPrevOut)
+  );
 
 }
