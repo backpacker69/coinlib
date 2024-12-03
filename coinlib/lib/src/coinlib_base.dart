@@ -51,6 +51,7 @@ export 'package:coinlib/src/tx/inputs/taproot_input.dart';
 export 'package:coinlib/src/tx/inputs/taproot_key_input.dart';
 export 'package:coinlib/src/tx/inputs/taproot_script_input.dart';
 export 'package:coinlib/src/tx/inputs/witness_input.dart';
+export 'package:coinlib/src/tx/inputs/apo_input.dart';
 
 export 'package:coinlib/src/tx/sighash/legacy_signature_hasher.dart';
 export 'package:coinlib/src/tx/sighash/sighash_type.dart';

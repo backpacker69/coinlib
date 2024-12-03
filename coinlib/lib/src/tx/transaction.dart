@@ -13,7 +13,9 @@ import 'inputs/p2pkh_input.dart';
 import 'inputs/p2sh_multisig_input.dart';
 import 'inputs/p2wpkh_input.dart';
 import 'inputs/raw_input.dart';
+import 'inputs/taproot_input.dart';
 import 'inputs/witness_input.dart';
+import 'inputs/apo_input.dart';
 import 'sighash/sighash_type.dart';
 import 'output.dart';
 
@@ -71,7 +73,6 @@ class Transaction with Writable {
   }
 
   static Transaction? _tryRead(BytesReader reader, bool witness) {
-
     final version = reader.readInt32();
 
     if (witness) {
@@ -94,7 +95,6 @@ class Transaction with Writable {
     // Match the raw inputs with witness data if this is a witness transaction
     final inputs = rawInputs.map(
       (raw) => Input.match(raw, witness ? reader.readVector() : []),
-    // Create list now to ensure we read the witness data before the locktime
     ).toList();
 
     final locktime = reader.readUInt32();
@@ -105,7 +105,6 @@ class Transaction with Writable {
       outputs: outputs,
       locktime: locktime,
     );
-
   }
 
   /// Reads a transaction from a [BytesReader], which may throw
@@ -200,7 +199,6 @@ class Transaction with Writable {
     BigInt? value,
     List<Output>? prevOuts,
   }) {
-
     if (inputN >= inputs.length) {
       throw ArgumentError.value(inputN, "inputN", "outside range of inputs");
     }
@@ -222,7 +220,6 @@ class Transaction with Writable {
         hashType: hashType,
       );
     } else if (input is LegacyWitnessInput) {
-
       if (value == null) {
         throw CannotSignInput("Prevout values are required for witness inputs");
       }
@@ -234,16 +231,14 @@ class Transaction with Writable {
         value: value,
         hashType: hashType,
       );
-
-    } else if (input is TaprootKeyInput) {
-
+    } else if (input is TaprootInput) {
       if (prevOuts == null) {
         throw CannotSignInput(
           "Previous outputs are required when signing a taproot input",
         );
       }
 
-      if (prevOuts.length != inputs.length) {
+      if (!hashType.anyPrevOut && prevOuts.length != inputs.length) {
         throw CannotSignInput(
           "The number of previous outputs must match the number of inputs",
         );
@@ -256,7 +251,6 @@ class Transaction with Writable {
         prevOuts: prevOuts,
         hashType: hashType,
       );
-
     } else {
       throw CannotSignInput("${input.runtimeType} not a signable input");
     }
@@ -274,9 +268,7 @@ class Transaction with Writable {
       outputs: outputs,
       locktime: locktime,
     );
-
   }
-
 
   /// Replaces the input at [n] with the new [input] and invalidates other
   /// input signatures that have standard sighash types accordingly. This is
@@ -421,4 +413,10 @@ class Transaction with Writable {
     => inputs.isNotEmpty && outputs.isNotEmpty
     && inputs.every((input) => input.complete);
 
+  bool get anyPrevOut => inputs.any((input) =>
+    input is APOInput ||
+    (input.witness.isNotEmpty &&
+     input.witness[0].length >= 64 &&
+     SchnorrInputSignature.fromBytes(input.witness[0]).hashType.anyPrevOut)
+  );
 }

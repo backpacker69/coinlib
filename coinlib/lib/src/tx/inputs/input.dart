@@ -17,6 +17,7 @@ abstract class Input with Writable {
   OutPoint get prevOut;
   Uint8List get scriptSig;
   int get sequence;
+  List<Uint8List> get witness => const [];  // Default empty witness
 
   /// True when the input is fully signed and ready for broadcast
   bool get complete;

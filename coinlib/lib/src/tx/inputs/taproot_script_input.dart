@@ -20,7 +20,6 @@ import 'raw_input.dart';
 /// be done manually via [updateStack]. These signatures must be handled by the
 /// consumer and will not be filtered upon a transaction update.
 class TaprootScriptInput extends TaprootInput {
-
   /// The tapscript embedded in the witness data, not to be confused with the
   /// empty [script].
   final Script tapscript;
@@ -56,7 +55,6 @@ class TaprootScriptInput extends TaprootInput {
   /// the correct size and contain the correct 0xc0 tapscript version but the
   /// internal key and parity bit is not validated.
   static TaprootScriptInput? match(RawInput raw, List<Uint8List> witness) {
-
     if (raw.scriptSig.isNotEmpty) return null;
     if (witness.length < 2) return null;
 
@@ -73,7 +71,6 @@ class TaprootScriptInput extends TaprootInput {
     }
 
     try {
-
       return TaprootScriptInput(
         prevOut: raw.prevOut,
         controlBlock: controlBlock,
@@ -81,13 +78,26 @@ class TaprootScriptInput extends TaprootInput {
         stack: witness.sublist(0, witness.length-2),
         sequence: raw.sequence,
       );
-
     } on OutOfData {
       return null;
     } on PushDataNotMinimal {
       return null;
     }
+  }
 
+  /// Default sign implementation that throws CannotSignInput.
+  /// Subclasses should override this with their specific signing logic.
+  @override
+  TaprootInput sign({
+    required Transaction tx,
+    required int inputN,
+    required ECPrivateKey key,
+    required List<Output> prevOuts,
+    SigHashType hashType = const SigHashType.all(),
+  }) {
+    throw CannotSignInput(
+      "TaprootScriptInput does not implement signing - use a specific subclass"
+    );
   }
 
   /// Replaces the stack to update the data required to spend the input
@@ -120,5 +130,4 @@ class TaprootScriptInput extends TaprootInput {
   );
 
   Uint8List get controlBlock => witness.last;
-
 }
